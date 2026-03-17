@@ -88,7 +88,9 @@ export const seedPlans: Plan[] = Array.from({ length: 15 }, (_, index) => {
 
 export const seedVotes: Vote[] = Array.from({ length: 30 }, (_, index) => {
   const plan = seedPlans[index % seedPlans.length];
-  const userId = (index % 10) + 1;
+  const parche = seedParches.find((candidate) => candidate.id === plan.parcheId);
+  const memberUserIds = parche?.members.map((member) => member.userId) ?? [1];
+  const userId = memberUserIds[index % memberUserIds.length];
   const option = plan.options[index % 3];
   return { planId: plan.id, userId, optionId: option.id };
 });

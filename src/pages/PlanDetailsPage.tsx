@@ -1,8 +1,15 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
+import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
-import { AttendanceStatusEnum, ParcheRoleEnum, PlanStateEnum, type Plan } from "../types";
+import {
+  AttendanceStatusEnum,
+  ParcheRoleEnum,
+  PlanStateEnum,
+  type Plan,
+  type RequestStatus,
+} from "../types";
 
 export default function PlanDetailsPage() {
   const { id } = useParams();
@@ -15,20 +22,18 @@ export default function PlanDetailsPage() {
     attendance,
     movePlanState,
     voteForOption,
-    removeVote,
     setAttendance,
     setCheckIn,
-    closeVotingIfTimePassed,
   } = useAppContext();
 
-  useEffect(() => {
-    closeVotingIfTimePassed();
-    const interval = setInterval(() => {
-      closeVotingIfTimePassed();
-    }, 20000);
-
-    return () => clearInterval(interval);
-  }, [closeVotingIfTimePassed]);
+  const [stateStatus, setStateStatus] = useState<RequestStatus>("idle");
+  const [stateMessage, setStateMessage] = useState("");
+  const [voteStatus, setVoteStatus] = useState<RequestStatus>("idle");
+  const [voteMessage, setVoteMessage] = useState("");
+  const [attendanceStatus, setAttendanceStatusMessage] = useState<RequestStatus>("idle");
+  const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [checkInStatus, setCheckInStatus] = useState<RequestStatus>("idle");
+  const [checkInMessage, setCheckInMessage] = useState("");
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -45,13 +50,42 @@ export default function PlanDetailsPage() {
     );
   }
 
-  const parche = parches.find((item) => item.id === plan.parcheId);
-  const member = parche?.members.find((item) => item.userId === currentUser.id);
-  const canManageState = member?.role === ParcheRoleEnum.owner || member?.role === ParcheRoleEnum.moderator;
+  const activePlan = plan;
 
-  const totalVotes = votes.filter((vote) => vote.planId === plan.id).length;
-  const myAttendance = attendance.find((item) => item.planId === plan.id && item.userId === currentUser.id);
-  const myVote = votes.find((vote) => vote.planId === plan.id && vote.userId === currentUser.id);
+  const parche = parches.find((item) => item.id === activePlan.parcheId);
+  if (!parche) {
+    return (
+      <main className="container py-4">
+        <EmptyState title="Parche not found" description="The parent parche for this plan no longer exists." />
+      </main>
+    );
+  }
+
+  const activeParche = parche;
+
+  const member = activeParche.members.find((item) => item.userId === currentUser.id);
+  if (!member) {
+    return (
+      <main className="container py-4">
+        <EmptyState
+          title="Access restricted"
+          description="Only members of this parche can see its plans, vote, and check in."
+        />
+      </main>
+    );
+  }
+
+  const canManageState = member.role === ParcheRoleEnum.owner || member.role === ParcheRoleEnum.moderator;
+  const totalVotes = votes.filter((vote) => vote.planId === activePlan.id).length;
+  const myAttendance = attendance.find((item) => item.planId === activePlan.id && item.userId === currentUser.id);
+  const myVote = votes.find((vote) => vote.planId === activePlan.id && vote.userId === currentUser.id);
+  const isVotingOpen = activePlan.state === PlanStateEnum.votingOpen;
+  const checkInNow = new Date();
+  const checkInStart = new Date(activePlan.checkInStart);
+  const checkInEnd = new Date(activePlan.checkInEnd);
+  const canCheckInNow = checkInNow >= checkInStart && checkInNow <= checkInEnd;
+  const canCheckIn = canCheckInNow && myAttendance?.status === AttendanceStatusEnum.yes && !myAttendance.checkedIn;
+  const winningOption = activePlan.options.find((option) => option.id === activePlan.winningOptionId);
 
   function getPercentage(optionVotes: number): number {
     if (totalVotes === 0) {
@@ -61,49 +95,91 @@ export default function PlanDetailsPage() {
     return Math.round((optionVotes / totalVotes) * 100);
   }
 
-  function getNextStateButtonText(plan: Plan): string {
-    if (plan.state === PlanStateEnum.draft) return "Open voting";
-    if (plan.state === PlanStateEnum.votingOpen) return "Close voting";
-    if (plan.state === PlanStateEnum.votingClosed) return "Schedule plan";
+  function getNextStateButtonText(currentPlan: Plan): string {
+    if (currentPlan.state === PlanStateEnum.draft) return "Open voting";
+    if (currentPlan.state === PlanStateEnum.votingOpen) return "Close voting";
+    if (currentPlan.state === PlanStateEnum.votingClosed) return "Schedule plan";
     return "No more actions";
   }
 
+  async function handleMoveState() {
+    setStateStatus("loading");
+    setStateMessage("");
+    const result = await movePlanState(activePlan.id);
+    setStateStatus(result.success ? "success" : "error");
+    setStateMessage(result.message);
+  }
 
-  const checkInNow = new Date();
-  const checkInStart = new Date(plan.checkInStart);
-  const checkInEnd = new Date(plan.checkInEnd);
-  const canCheckInNow = checkInNow >= checkInStart && checkInNow <= checkInEnd;
+  async function handleVote(optionId: number) {
+    setVoteStatus("loading");
+    setVoteMessage("");
+    const result = await voteForOption(activePlan.id, optionId);
+    setVoteStatus(result.success ? "success" : "error");
+    setVoteMessage(result.message);
+  }
+
+  async function handleAttendance(status: AttendanceStatusEnum) {
+    setAttendanceStatusMessage("loading");
+    setAttendanceMessage("");
+    const result = await setAttendance(activePlan.id, status);
+    setAttendanceStatusMessage(result.success ? "success" : "error");
+    setAttendanceMessage(result.message);
+  }
+
+  async function handleCheckIn() {
+    setCheckInStatus("loading");
+    setCheckInMessage("");
+    const result = await setCheckIn(activePlan.id);
+    setCheckInStatus(result.success ? "success" : "error");
+    setCheckInMessage(result.message);
+  }
 
   return (
     <main className="container py-4">
-      <Link to={`/parches/${plan.parcheId}`} className="btn btn-link ps-0">← Back to parche</Link>
+      <Link to={`/parches/${activePlan.parcheId}`} className="btn btn-link ps-0">
+        &larr; Back to parche
+      </Link>
 
       <section className="card shadow-sm p-4 mb-3">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div>
-            <h1 className="h4 mb-1">{plan.title}</h1>
-            <p className="text-muted mb-1">{plan.description}</p>
-            <p className="small mb-0"><strong>State:</strong> {plan.state}</p>
+            <h1 className="h4 mb-1">{activePlan.title}</h1>
+            <p className="text-muted mb-1">{activePlan.description}</p>
+            <p className="small mb-1"><strong>State:</strong> {activePlan.state}</p>
+            <p className="small text-muted mb-0">
+              Voting deadline: {new Date(activePlan.votingDeadline).toLocaleString()}
+            </p>
           </div>
-          {canManageState && plan.state !== PlanStateEnum.scheduled && (
-            <button className="btn btn-outline-dark" onClick={() => movePlanState(plan.id)}>{getNextStateButtonText(plan)}</button>
-          )}
+          <div className="text-end">
+            {canManageState && activePlan.state !== PlanStateEnum.scheduled ? (
+              <button className="btn btn-outline-dark" onClick={() => void handleMoveState()} disabled={stateStatus === "loading"}>
+                {stateStatus === "loading" ? "Updating..." : getNextStateButtonText(activePlan)}
+              </button>
+            ) : (
+              <p className="small text-muted mb-0">Only owners and moderators can move this plan forward.</p>
+            )}
+          </div>
         </div>
+        <FeedbackAlert status={stateStatus} message={stateMessage} className="mt-3 mb-0" />
       </section>
 
       <section className="card shadow-sm p-4 mb-3">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <h2 className="h5 mb-0">Voting options</h2>
-          {myVote && <span className="badge bg-primary">You already voted</span>}
+          <div>
+            <h2 className="h5 mb-0">Voting options</h2>
+            <p className="small text-muted mb-0">Tie-breaking rule: the earliest created option wins any tie.</p>
+          </div>
+          {myVote && <span className="badge bg-primary">You have an active vote</span>}
         </div>
 
-        {plan.options.map((option) => {
+        <FeedbackAlert status={voteStatus} message={voteMessage} className="mb-3" />
+
+        {activePlan.options.map((option) => {
           const optionVotes = votes.filter(
-            (vote) => vote.planId === plan.id && vote.optionId === option.id
+            (vote) => vote.planId === activePlan.id && vote.optionId === option.id,
           ).length;
 
           const percentage = getPercentage(optionVotes);
-          const isVotingOpen = plan.state === PlanStateEnum.votingOpen;
           const isMyVote = myVote?.optionId === option.id;
 
           return (
@@ -123,23 +199,22 @@ export default function PlanDetailsPage() {
 
                 <div className="d-flex flex-wrap align-items-center gap-2">
                   {isMyVote && <span className="badge bg-primary">Your vote</span>}
-                  {plan.winningOptionId === option.id && (
+                  {activePlan.winningOptionId === option.id && (
                     <span className="badge bg-success">Winner</span>
                   )}
                 </div>
               </div>
 
-              {isVotingOpen && (
+              {isVotingOpen ? (
                 <button
-                  className={`btn btn-sm ${isMyVote ? "btn-outline-danger" : "btn-primary"}`}
-                  onClick={() =>
-                    isMyVote
-                      ? removeVote(plan.id)
-                      : voteForOption(plan.id, option.id)
-                  }
+                  className={`btn btn-sm ${isMyVote ? "btn-success" : "btn-primary"}`}
+                  onClick={() => void handleVote(option.id)}
+                  disabled={voteStatus === "loading" || isMyVote}
                 >
-                  {isMyVote ? "Undo vote" : "Vote"}
+                  {isMyVote ? "Selected" : myVote ? "Change vote" : "Vote"}
                 </button>
+              ) : (
+                <p className="small text-muted mb-0">Voting is closed for this plan.</p>
               )}
             </div>
           );
@@ -148,10 +223,30 @@ export default function PlanDetailsPage() {
 
       <section className="card shadow-sm p-4 mb-3">
         <h2 className="h5">Attendance</h2>
+        <p className="small text-muted">Set whether you are going to the plan.</p>
+        <FeedbackAlert status={attendanceStatus} message={attendanceMessage} className="mb-3" />
         <div className="d-flex flex-wrap gap-2 mb-3">
-          <button className="btn btn-success btn-sm" onClick={() => setAttendance(plan.id, AttendanceStatusEnum.yes)}>Yes</button>
-          <button className="btn btn-danger btn-sm" onClick={() => setAttendance(plan.id, AttendanceStatusEnum.no)}>No</button>
-          <button className="btn btn-warning btn-sm" onClick={() => setAttendance(plan.id, AttendanceStatusEnum.maybe)}>Maybe</button>
+          <button
+            className="btn btn-success btn-sm"
+            onClick={() => void handleAttendance(AttendanceStatusEnum.yes)}
+            disabled={attendanceStatus === "loading"}
+          >
+            Yes
+          </button>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => void handleAttendance(AttendanceStatusEnum.no)}
+            disabled={attendanceStatus === "loading"}
+          >
+            No
+          </button>
+          <button
+            className="btn btn-warning btn-sm"
+            onClick={() => void handleAttendance(AttendanceStatusEnum.maybe)}
+            disabled={attendanceStatus === "loading"}
+          >
+            Maybe
+          </button>
         </div>
 
         <p className="small mb-2">Your current status: <strong>{myAttendance?.status ?? "Not set"}</strong></p>
@@ -159,9 +254,9 @@ export default function PlanDetailsPage() {
         <h3 className="h6">Attendance list</h3>
         <ul className="list-group">
           {attendance
-            .filter((item) => item.planId === plan.id)
+            .filter((item) => item.planId === activePlan.id)
             .map((item) => {
-              const user = users.find((u) => u.id === item.userId);
+              const user = users.find((candidate) => candidate.id === item.userId);
               return (
                 <li
                   key={`${item.planId}-${item.userId}`}
@@ -189,7 +284,7 @@ export default function PlanDetailsPage() {
                   </div>
 
                   <span>
-                    {item.status} {item.checkedIn ? "✅" : ""}
+                    {item.status} {item.checkedIn ? "Checked in" : ""}
                   </span>
                 </li>
               );
@@ -198,10 +293,39 @@ export default function PlanDetailsPage() {
       </section>
 
       <section className="card shadow-sm p-4">
-        <h2 className="h5">Check-in</h2>
-        <p className="small text-muted">Window: {plan.checkInStart} to {plan.checkInEnd}</p>
-        <button className="btn btn-outline-success" disabled={!canCheckInNow} onClick={() => setCheckIn(plan.id)}>Check in now</button>
-        {!canCheckInNow && <p className="small text-muted mt-2 mb-0">Check-in button activates only during the plan window.</p>}
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <div>
+            <h2 className="h5 mb-1">Check-in</h2>
+            <p className="small text-muted mb-0">
+              Window: {checkInStart.toLocaleString()} to {checkInEnd.toLocaleString()}
+            </p>
+          </div>
+          {winningOption && (
+            <span className="badge bg-success">
+              Winner: {winningOption.place} at {winningOption.time}
+            </span>
+          )}
+        </div>
+
+        <FeedbackAlert status={checkInStatus} message={checkInMessage} className="mb-3" />
+
+        <button
+          className="btn btn-outline-success"
+          disabled={!canCheckIn || checkInStatus === "loading"}
+          onClick={() => void handleCheckIn()}
+        >
+          {checkInStatus === "loading" ? "Checking in..." : myAttendance?.checkedIn ? "Checked in" : "Check in now"}
+        </button>
+        {!canCheckInNow && (
+          <p className="small text-muted mt-2 mb-0">
+            Check-in is blocked because the current time is outside the allowed window.
+          </p>
+        )}
+        {myAttendance?.status !== AttendanceStatusEnum.yes && (
+          <p className="small text-muted mt-2 mb-0">
+            Set your attendance to Yes before trying to check in.
+          </p>
+        )}
       </section>
     </main>
   );

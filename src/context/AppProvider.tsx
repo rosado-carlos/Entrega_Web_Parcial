@@ -1,378 +1,138 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { getInitialAppData, saveAppData } from "../services/localStorage";
+import { AppContext, type AppContextType } from "./AppContext";
+import { getInitialAppData } from "../services/localStorage";
+import {
+  closeVotingIfTimePassed as closeVotingIfTimePassedOnServer,
+  createParche as createParcheOnServer,
+  createPlan as createPlanOnServer,
+  joinParche as joinParcheOnServer,
+  loadAppData,
+  loginUser,
+  logoutUser,
+  registerUser,
+  setAttendanceStatus,
+  setPlanCheckIn,
+  updateParcheRole,
+  voteForOption as voteForOptionOnServer,
+  movePlanState as movePlanStateOnServer,
+} from "../services/mockApi";
 import {
   AttendanceStatusEnum,
   ParcheRoleEnum,
-  PlanStateEnum,
-  type Attendance,
-  type Parche,
-  type Plan,
-  type User,
-  type Vote,
+  type ActionResult,
+  type AppData,
+  type AppDataResult,
+  type NewParcheData,
+  type NewPlanData,
+  type RegisterData,
 } from "../types";
 
-import { AppContext, type AppContextType } from "./AppContext";
-
-type RegisterData = {
-  fullName: string;
-  email: string;
-  major: string;
-  password: string;
-  avatarUrl?: string;
-};
-
-type NewParcheData = {
-  name: string;
-  description: string;
-  coverImageUrl: string;
-};
-
-type NewPlanData = {
-  parcheId: number;
-  title: string;
-  description: string;
-  dateStart: string;
-  dateEnd: string;
-  votingDeadline: string;
-  options: { place: string; time: string }[];
-};
+function toActionResult(result: AppDataResult): ActionResult {
+  return { success: result.success, message: result.message };
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const initialData = getInitialAppData();
-
-  const [users, setUsers] = useState<User[]>(initialData.users);
-  const [parches, setParches] = useState<Parche[]>(initialData.parches);
-  const [plans, setPlans] = useState<Plan[]>(initialData.plans);
-  const [votes, setVotes] = useState<Vote[]>(initialData.votes);
-  const [attendance, setAttendanceState] = useState<Attendance[]>(initialData.attendance);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(initialData.currentUserId);
-
-  useEffect(() => {
-    if (users.length === 0) {
-      return;
-    }
-
-    saveAppData({ users, parches, plans, votes, attendance, currentUserId });
-  }, [users, parches, plans, votes, attendance, currentUserId]);
+  const [appData, setAppData] = useState<AppData>(() => getInitialAppData());
 
   const currentUser = useMemo(() => {
-    return users.find((user) => user.id === currentUserId) ?? null;
-  }, [users, currentUserId]);
+    return appData.users.find((user) => user.id === appData.currentUserId) ?? null;
+  }, [appData.currentUserId, appData.users]);
 
-  function register(data: RegisterData) {
-    const userAlreadyExists = users.some((user) => user.email.toLowerCase() === data.email.toLowerCase());
-    if (userAlreadyExists) {
-      return { success: false, message: "Email already registered" };
+  const syncResult = useCallback((result: AppDataResult): ActionResult => {
+    setAppData(result.data);
+    return toActionResult(result);
+  }, []);
+
+  const refreshAppData = useCallback(async () => {
+    return syncResult(await loadAppData());
+  }, [syncResult]);
+
+  const register = useCallback(async (data: RegisterData) => {
+    return syncResult(await registerUser(data));
+  }, [syncResult]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    return syncResult(await loginUser(email, password));
+  }, [syncResult]);
+
+  const logout = useCallback(async () => {
+    return syncResult(await logoutUser());
+  }, [syncResult]);
+
+  const createParche = useCallback(async (data: NewParcheData) => {
+    return syncResult(await createParcheOnServer(data));
+  }, [syncResult]);
+
+  const joinParche = useCallback(async (inviteCode: string) => {
+    return syncResult(await joinParcheOnServer(inviteCode));
+  }, [syncResult]);
+
+  const updateRole = useCallback(async (parcheId: number, targetUserId: number, role: ParcheRoleEnum) => {
+    return syncResult(await updateParcheRole(parcheId, targetUserId, role));
+  }, [syncResult]);
+
+  const createPlan = useCallback(async (data: NewPlanData) => {
+    return syncResult(await createPlanOnServer(data));
+  }, [syncResult]);
+
+  const movePlanState = useCallback(async (planId: number) => {
+    return syncResult(await movePlanStateOnServer(planId));
+  }, [syncResult]);
+
+  const voteForOption = useCallback(async (planId: number, optionId: number) => {
+    return syncResult(await voteForOptionOnServer(planId, optionId));
+  }, [syncResult]);
+
+  const closeVotingIfTimePassed = useCallback(async () => {
+    return syncResult(await closeVotingIfTimePassedOnServer());
+  }, [syncResult]);
+
+  const setAttendance = useCallback(async (planId: number, status: AttendanceStatusEnum) => {
+    return syncResult(await setAttendanceStatus(planId, status));
+  }, [syncResult]);
+
+  const setCheckIn = useCallback(async (planId: number) => {
+    return syncResult(await setPlanCheckIn(planId));
+  }, [syncResult]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function hydrateAppData() {
+      const result = await loadAppData();
+      if (isActive) {
+        setAppData(result.data);
+      }
     }
 
-    const newUser: User = {
-      id: users.length + 1,
-      fullName: data.fullName,
-      email: data.email,
-      major: data.major,
-      password: data.password,
-      avatarUrl: data.avatarUrl,
+    async function syncExpiredVoting() {
+      const result = await closeVotingIfTimePassedOnServer();
+      if (isActive) {
+        setAppData(result.data);
+      }
+    }
+
+    void hydrateAppData();
+
+    const interval = window.setInterval(() => {
+      void syncExpiredVoting();
+    }, 30000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(interval);
     };
+  }, []);
 
-    setUsers((previousUsers) => [...previousUsers, newUser]);
-    setCurrentUserId(newUser.id);
-    return { success: true, message: "Account created" };
-  }
-
-  function login(email: string, password: string) {
-    const user = users.find((item) => item.email.toLowerCase() === email.toLowerCase() && item.password === password);
-
-    if (!user) {
-      return { success: false, message: "Invalid credentials" };
-    }
-
-    setCurrentUserId(user.id);
-    return { success: true, message: "Welcome back" };
-  }
-
-  function logout() {
-    setCurrentUserId(null);
-  }
-
-  function createParche(data: NewParcheData) {
-    if (!currentUser) {
-      return;
-    }
-
-    const newParche: Parche = {
-      id: parches.length + 1,
-      name: data.name,
-      description: data.description,
-      coverImageUrl: data.coverImageUrl,
-      inviteCode: `${data.name.slice(0, 4).toUpperCase()}-${Date.now().toString().slice(-4)}`,
-      members: [{ userId: currentUser.id, role: ParcheRoleEnum.owner }],
-    };
-
-    setParches((previousParches) => [...previousParches, newParche]);
-  }
-
-  function joinParche(inviteCode: string) {
-    if (!currentUser) {
-      return { success: false, message: "You must be logged in" };
-    }
-
-    const parcheToJoin = parches.find((parche) => parche.inviteCode.toLowerCase() === inviteCode.toLowerCase());
-
-    if (!parcheToJoin) {
-      return { success: false, message: "Invite code not found" };
-    }
-
-    const userAlreadyInParche = parcheToJoin.members.some((member) => member.userId === currentUser.id);
-    if (userAlreadyInParche) {
-      return { success: false, message: "You are already in this parche" };
-    }
-
-    const updatedParches = parches.map((parche) => {
-      if (parche.id !== parcheToJoin.id) {
-        return parche;
-      }
-
-      return {
-        ...parche,
-        members: [...parche.members, { userId: currentUser.id, role: ParcheRoleEnum.member }],
-      };
-    });
-
-    setParches(updatedParches);
-    return { success: true, message: "Joined successfully" };
-  }
-
-  function updateRole(parcheId: number, targetUserId: number, role: ParcheRoleEnum) {
-    if (!currentUser) {
-      return;
-    }
-
-    setParches((previousParches) => {
-      return previousParches.map((parche) => {
-        if (parche.id !== parcheId) {
-          return parche;
-        }
-
-        const currentMember = parche.members.find((member) => member.userId === currentUser.id);
-        const isOwner = currentMember?.role === ParcheRoleEnum.owner;
-
-        if (!isOwner) {
-          return parche;
-        }
-
-        const updatedMembers = parche.members.map((member) => {
-          if (member.userId !== targetUserId) {
-            return member;
-          }
-
-          return { ...member, role };
-        });
-
-        return { ...parche, members: updatedMembers };
-      });
-    });
-  }
-
-  function createPlan(data: NewPlanData) {
-    if (!currentUser) {
-      return { success: false, message: "You must be logged in" };
-    }
-
-    if (data.options.length < 3) {
-      return { success: false, message: "Plan needs at least 3 options" };
-    }
-
-    const newPlanId = plans.length + 1;
-    const newPlan: Plan = {
-      id: newPlanId,
-      parcheId: data.parcheId,
-      createdBy: currentUser.id,
-      title: data.title,
-      description: data.description,
-      dateStart: data.dateStart,
-      dateEnd: data.dateEnd,
-      votingDeadline: data.votingDeadline,
-      state: PlanStateEnum.draft,
-      options: data.options.map((option, index) => ({
-        id: newPlanId * 10 + index + 1,
-        place: option.place,
-        time: option.time,
-      })),
-      checkInStart: `${data.dateStart}T18:00`,
-      checkInEnd: `${data.dateStart}T23:00`,
-    };
-
-    setPlans((previousPlans) => [...previousPlans, newPlan]);
-    return { success: true, message: "Plan created" };
-  }
-
-  function movePlanState(planId: number) {
-    if (!currentUser) {
-      return;
-    }
-
-    setPlans((previousPlans) => {
-      return previousPlans.map((plan) => {
-        if (plan.id !== planId) {
-          return plan;
-        }
-
-        const parche = parches.find((item) => item.id === plan.parcheId);
-        const currentMember = parche?.members.find((member) => member.userId === currentUser.id);
-        const canMoveState =
-          currentMember?.role === ParcheRoleEnum.owner || currentMember?.role === ParcheRoleEnum.moderator;
-
-        if (!canMoveState) {
-          return plan;
-        }
-
-        if (plan.state === PlanStateEnum.draft) {
-          return { ...plan, state: PlanStateEnum.votingOpen };
-        }
-
-        if (plan.state === PlanStateEnum.votingOpen) {
-          return applyCloseVoting(plan);
-        }
-
-        if (plan.state === PlanStateEnum.votingClosed) {
-          return { ...plan, state: PlanStateEnum.scheduled };
-        }
-
-        return plan;
-      });
-    });
-  }
-
-  const applyCloseVoting = useCallback((plan: Plan) => {
-    const planVotes = votes.filter((vote) => vote.planId === plan.id);
-
-    let winningOptionId = plan.options[0]?.id;
-    let highestVotes = -1;
-
-    for (const option of plan.options) {
-      const optionVotes = planVotes.filter((vote) => vote.optionId === option.id).length;
-      if (optionVotes > highestVotes) {
-        highestVotes = optionVotes;
-        winningOptionId = option.id;
-      }
-    }
-
-    return {
-      ...plan,
-      state: PlanStateEnum.votingClosed,
-      winningOptionId,
-    };
-  }, [votes]);
-
-
-  function voteForOption(planId: number, optionId: number) {
-    if (!currentUser) {
-      return;
-    }
-
-    setVotes((previousVotes) => {
-      const existingVote = previousVotes.find((vote) => vote.planId === planId && vote.userId === currentUser.id);
-
-      if (!existingVote) {
-        return [...previousVotes, { planId, userId: currentUser.id, optionId }];
-      }
-
-      return previousVotes.map((vote) => {
-        if (vote.planId === planId && vote.userId === currentUser.id) {
-          return { ...vote, optionId };
-        }
-        return vote;
-      });
-    });
-  }
-
-  function removeVote(planId: number) {
-    if (!currentUser) {
-      return;
-    }
-
-    setVotes((previousVotes) =>
-      previousVotes.filter(
-        (vote) => !(vote.planId === planId && vote.userId === currentUser.id)
-      )
-    );
-  }
-
-
-  const closeVotingIfTimePassed = useCallback(() => {
-    setPlans((previousPlans) => {
-      let hasChanges = false;
-
-      const nextPlans = previousPlans.map((plan) => {
-        if (plan.state !== PlanStateEnum.votingOpen) {
-          return plan;
-        }
-
-        const now = new Date();
-        const deadline = new Date(plan.votingDeadline);
-
-        if (now < deadline) {
-          return plan;
-        }
-
-        hasChanges = true;
-        return applyCloseVoting(plan);
-      });
-
-      return hasChanges ? nextPlans : previousPlans;
-    });
-  }, [applyCloseVoting]);
-
-  function setAttendance(planId: number, status: AttendanceStatusEnum) {
-    if (!currentUser) {
-      return;
-    }
-
-    setAttendanceState((previousAttendance) => {
-      const existingAttendance = previousAttendance.find((item) => item.planId === planId && item.userId === currentUser.id);
-
-      if (!existingAttendance) {
-        return [...previousAttendance, { planId, userId: currentUser.id, status, checkedIn: false }];
-      }
-
-      return previousAttendance.map((item) => {
-        if (item.planId === planId && item.userId === currentUser.id) {
-          return { ...item, status };
-        }
-        return item;
-      });
-    });
-  }
-
-  function setCheckIn(planId: number) {
-    if (!currentUser) {
-      return;
-    }
-
-    setAttendanceState((previousAttendance) => {
-      const existingAttendance = previousAttendance.find((item) => item.planId === planId && item.userId === currentUser.id);
-
-      if (!existingAttendance) {
-        return [...previousAttendance, { planId, userId: currentUser.id, status: AttendanceStatusEnum.yes, checkedIn: true }];
-      }
-
-      return previousAttendance.map((item) => {
-        if (item.planId === planId && item.userId === currentUser.id) {
-          return { ...item, checkedIn: true };
-        }
-        return item;
-      });
-    });
-  }
-
-
-  const value: AppContextType = {
-    users,
-    parches,
-    plans,
-    votes,
-    attendance,
+  const value: AppContextType = useMemo(() => ({
+    appData,
+    users: appData.users,
+    parches: appData.parches,
+    plans: appData.plans,
+    votes: appData.votes,
+    attendance: appData.attendance,
     currentUser,
+    refreshAppData,
     register,
     login,
     logout,
@@ -382,17 +142,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createPlan,
     movePlanState,
     voteForOption,
-    removeVote,
     closeVotingIfTimePassed,
     setAttendance,
     setCheckIn,
-  };
+  }), [
+    appData,
+    closeVotingIfTimePassed,
+    createParche,
+    createPlan,
+    currentUser,
+    joinParche,
+    login,
+    logout,
+    movePlanState,
+    refreshAppData,
+    register,
+    setAttendance,
+    setCheckIn,
+    updateRole,
+    voteForOption,
+  ]);
 
-  return (
-    <AppContext.Provider
-      value={value}
-    >
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

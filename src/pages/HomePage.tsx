@@ -1,16 +1,23 @@
-import { Link, Navigate } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import ParcheCard from "../components/parches/ParcheCard";
+import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
+import type { RequestStatus } from "../types";
 
 export default function HomePage() {
   const { currentUser, parches } = useAppContext();
+  const location = useLocation();
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
 
   const userParches = parches.filter((parche) => parche.members.some((member) => member.userId === currentUser.id));
+  const notice = typeof location.state === "object" && location.state && "notice" in location.state
+    ? String(location.state.notice ?? "")
+    : "";
+  const noticeStatus: RequestStatus = notice ? "success" : "idle";
 
   return (
     <main className="container py-4">
@@ -24,6 +31,8 @@ export default function HomePage() {
           <Link to="/rankings" className="btn btn-outline-secondary">Rankings</Link>
         </div>
       </div>
+
+      <FeedbackAlert status={noticeStatus} message={notice} className="mb-3" />
 
       {userParches.length === 0 ? (
         <EmptyState title="No parches yet" description="Create your first parche or join one with an invite code." />

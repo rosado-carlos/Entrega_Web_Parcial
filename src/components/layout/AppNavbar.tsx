@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { useAppContext } from "../../context/useAppContext";
 
 export default function AppNavbar() {
   const { currentUser, logout } = useAppContext();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    await logout();
+    setIsLoggingOut(false);
+  }
 
   return (
     <nav className="navbar navbar-expand-lg bg-dark navbar-dark">
@@ -30,8 +38,8 @@ export default function AppNavbar() {
                 )}
                 <span className="text-light small">{currentUser.fullName}</span>
               </div>
-              <button className="btn btn-outline-light btn-sm" onClick={logout}>
-                Logout
+              <button className="btn btn-outline-light btn-sm" onClick={() => void handleLogout()} disabled={isLoggingOut}>
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </>
           ) : (

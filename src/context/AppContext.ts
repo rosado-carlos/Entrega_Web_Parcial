@@ -1,7 +1,12 @@
 import { createContext } from "react";
 import {
+  type ActionResult,
   AttendanceStatusEnum,
+  type AppData,
+  type NewParcheData,
+  type NewPlanData,
   ParcheRoleEnum,
+  type RegisterData,
   type Attendance,
   type Parche,
   type Plan,
@@ -9,50 +14,27 @@ import {
   type Vote,
 } from "../types";
 
-type RegisterData = {
-  fullName: string;
-  email: string;
-  major: string;
-  password: string;
-  avatarUrl?: string;
-};
-
-type NewParcheData = {
-  name: string;
-  description: string;
-  coverImageUrl: string;
-};
-
-type NewPlanData = {
-  parcheId: number;
-  title: string;
-  description: string;
-  dateStart: string;
-  dateEnd: string;
-  votingDeadline: string;
-  options: { place: string; time: string }[];
-};
-
 export type AppContextType = {
+  appData: AppData;
   users: User[];
   parches: Parche[];
   plans: Plan[];
   votes: Vote[];
   attendance: Attendance[];
   currentUser: User | null;
-  register: (data: RegisterData) => { success: boolean; message: string };
-  login: (email: string, password: string) => { success: boolean; message: string };
-  logout: () => void;
-  createParche: (data: NewParcheData) => void;
-  joinParche: (inviteCode: string) => { success: boolean; message: string };
-  updateRole: (parcheId: number, targetUserId: number, role: ParcheRoleEnum) => void;
-  createPlan: (data: NewPlanData) => { success: boolean; message: string };
-  movePlanState: (planId: number) => void;
-  voteForOption: (planId: number, optionId: number) => void;
-  removeVote: (planId: number) => void;
-  closeVotingIfTimePassed: () => void;
-  setAttendance: (planId: number, status: AttendanceStatusEnum) => void;
-  setCheckIn: (planId: number) => void;
+  refreshAppData: () => Promise<ActionResult>;
+  register: (data: RegisterData) => Promise<ActionResult>;
+  login: (email: string, password: string) => Promise<ActionResult>;
+  logout: () => Promise<ActionResult>;
+  createParche: (data: NewParcheData) => Promise<ActionResult>;
+  joinParche: (inviteCode: string) => Promise<ActionResult>;
+  updateRole: (parcheId: number, targetUserId: number, role: ParcheRoleEnum) => Promise<ActionResult>;
+  createPlan: (data: NewPlanData) => Promise<ActionResult>;
+  movePlanState: (planId: number) => Promise<ActionResult>;
+  voteForOption: (planId: number, optionId: number) => Promise<ActionResult>;
+  closeVotingIfTimePassed: () => Promise<ActionResult>;
+  setAttendance: (planId: number, status: AttendanceStatusEnum) => Promise<ActionResult>;
+  setCheckIn: (planId: number) => Promise<ActionResult>;
 };
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);

@@ -1,6 +1,9 @@
 import { useState, type SubmitEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
+import FeedbackAlert from "../components/ui/FeedbackAlert";
+import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
+import type { RequestStatus } from "../types";
 
 type OptionInput = {
   place: string;
@@ -17,8 +20,8 @@ export default function CreatePlanPage() {
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
   const [votingDeadline, setVotingDeadline] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-
+  const [status, setStatus] = useState<RequestStatus>("idle");
+  const [message, setMessage] = useState("");
   const [options, setOptions] = useState<OptionInput[]>([
     { place: "", time: "" },
     { place: "", time: "" },
@@ -33,7 +36,24 @@ export default function CreatePlanPage() {
   const parche = parches.find((item) => item.id === parcheId);
 
   if (!parche) {
-    return <Navigate to="/" replace />;
+    return (
+      <main className="container py-4">
+        <EmptyState title="Parche not found" description="The requested parche no longer exists." />
+      </main>
+    );
+  }
+
+  const isMember = parche.members.some((member) => member.userId === currentUser.id);
+
+  if (!isMember) {
+    return (
+      <main className="container py-4">
+        <EmptyState
+          title="Access restricted"
+          description="Only members of this parche can create a plan here."
+        />
+      </main>
+    );
   }
 
   function handleOptionChange(index: number, field: "place" | "time", value: string) {
@@ -48,22 +68,18 @@ export default function CreatePlanPage() {
     });
   }
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    setErrorMessage("");
+    setStatus("loading");
+    setMessage("");
 
-    if (!title || !description || !dateStart || !dateEnd || !votingDeadline) {
-      setErrorMessage("Please complete all required fields");
+    if (dateEnd && dateStart && dateEnd < dateStart) {
+      setStatus("error");
+      setMessage("Date end cannot be earlier than date start.");
       return;
     }
 
-    const optionsWithMissingData = options.some((option) => !option.place || !option.time);
-    if (optionsWithMissingData) {
-      setErrorMessage("All options need place and time");
-      return;
-    }
-
-    const result = createPlan({
+    const result = await createPlan({
       parcheId,
       title,
       description,
@@ -74,55 +90,105 @@ export default function CreatePlanPage() {
     });
 
     if (!result.success) {
-      setErrorMessage(result.message);
+      setStatus("error");
+      setMessage(result.message);
       return;
     }
 
-    navigate(`/parches/${parcheId}`);
+    setStatus("success");
+    navigate(`/parches/${parcheId}`, { state: { notice: result.message } });
   }
 
   return (
     <main className="container py-4">
       <section className="card shadow-sm p-4">
         <h1 className="h4">Create a new plan in {parche.name}</h1>
-        <form onSubmit={handleSubmit}>
+        <p className="small text-muted mb-4">
+          Any member can create a plan, but only owners and moderators can move it through the state machine.
+        </p>
+        <form onSubmit={(event) => void handleSubmit(event)}>
+          <FeedbackAlert status={status} message={message} className="mb-3" />
+
           <div className="row g-3">
             <div className="col-12 col-md-6">
-              <label className="form-label">Title</label>
-              <input className="form-control" value={title} onChange={(event) => setTitle(event.target.value)} required minLength={4} />
+              <label className="form-label" htmlFor="plan-title">Title</label>
+              <input
+                id="plan-title"
+                className="form-control"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+                minLength={4}
+              />
             </div>
             <div className="col-12 col-md-6">
-              <label className="form-label">Voting deadline</label>
-              <input className="form-control" type="datetime-local" value={votingDeadline} onChange={(event) => setVotingDeadline(event.target.value)} required />
+              <label className="form-label" htmlFor="plan-voting-deadline">Voting deadline</label>
+              <input
+                id="plan-voting-deadline"
+                className="form-control"
+                type="datetime-local"
+                value={votingDeadline}
+                onChange={(event) => setVotingDeadline(event.target.value)}
+                required
+              />
             </div>
             <div className="col-12">
-              <label className="form-label">Description</label>
-              <textarea className="form-control" value={description} onChange={(event) => setDescription(event.target.value)} required minLength={10} />
+              <label className="form-label" htmlFor="plan-description">Description</label>
+              <textarea
+                id="plan-description"
+                className="form-control"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                required
+                minLength={10}
+              />
             </div>
             <div className="col-12 col-md-6">
-              <label className="form-label">Date start</label>
-              <input className="form-control" type="date" value={dateStart} onChange={(event) => setDateStart(event.target.value)} required />
+              <label className="form-label" htmlFor="plan-date-start">Date start</label>
+              <input
+                id="plan-date-start"
+                className="form-control"
+                type="date"
+                value={dateStart}
+                onChange={(event) => setDateStart(event.target.value)}
+                required
+              />
             </div>
             <div className="col-12 col-md-6">
-              <label className="form-label">Date end</label>
-              <input className="form-control" type="date" value={dateEnd} onChange={(event) => setDateEnd(event.target.value)} required />
+              <label className="form-label" htmlFor="plan-date-end">Date end</label>
+              <input
+                id="plan-date-end"
+                className="form-control"
+                type="date"
+                value={dateEnd}
+                onChange={(event) => setDateEnd(event.target.value)}
+                required
+                min={dateStart || undefined}
+              />
             </div>
           </div>
 
           <h2 className="h5 mt-4">Options (minimum 3)</h2>
           {options.map((option, index) => (
-            <div className="row g-2 mb-2" key={index}>
+            <div className="row g-2 mb-2" key={`plan-option-${index + 1}`}>
               <div className="col-12 col-md-8">
+                <label className="form-label" htmlFor={`plan-option-place-${index + 1}`}>
+                  Option {index + 1} place
+                </label>
                 <input
+                  id={`plan-option-place-${index + 1}`}
                   className="form-control"
-                  placeholder={`Option ${index + 1} place`}
                   value={option.place}
                   onChange={(event) => handleOptionChange(index, "place", event.target.value)}
                   required
                 />
               </div>
               <div className="col-12 col-md-4">
+                <label className="form-label" htmlFor={`plan-option-time-${index + 1}`}>
+                  Option {index + 1} time
+                </label>
                 <input
+                  id={`plan-option-time-${index + 1}`}
                   className="form-control"
                   type="time"
                   value={option.time}
@@ -133,9 +199,9 @@ export default function CreatePlanPage() {
             </div>
           ))}
 
-          {errorMessage && <p className="small text-danger">{errorMessage}</p>}
-
-          <button type="submit" className="btn btn-primary mt-2">Create plan</button>
+          <button type="submit" className="btn btn-primary mt-2" disabled={status === "loading"}>
+            {status === "loading" ? "Creating plan..." : "Create plan"}
+          </button>
         </form>
       </section>
     </main>
