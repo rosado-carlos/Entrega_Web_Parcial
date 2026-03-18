@@ -470,7 +470,7 @@ export async function movePlanState(planId: number): Promise<AppDataResult> {
     closeVotingForPlan(plan, data);
     return saveAndResolve(
       data,
-      "Voting closed. Tie-breaking rule: the earliest created option wins any tie.",
+      "Voting closed. Tie-breaking rule: the earliest created option wins",
     );
   }
 

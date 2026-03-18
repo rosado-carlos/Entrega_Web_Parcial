@@ -29,6 +29,8 @@ export default function HomePage() {
         <div className="d-flex gap-2">
           <Link to="/parches/new" className="btn btn-primary">Create parche</Link>
           <Link to="/rankings" className="btn btn-outline-secondary">Rankings</Link>
+          <Link className="btn btn-outline-secondary" to={'/parches/new'}>Join a Parche</Link>
+
         </div>
       </div>
 
