@@ -8,8 +8,6 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "docs:html": "node generate_documentation_html.mjs",
-    "docs:pdf": "node generate_documentation_pdf.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
