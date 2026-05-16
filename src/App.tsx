@@ -9,10 +9,32 @@ import ParcheDetailsPage from "./pages/ParcheDetailsPage";
 import PlanDetailsPage from "./pages/PlanDetailsPage";
 import RankingsPage from "./pages/RankingsPage";
 import RegisterPage from "./pages/RegisterPage";
+//import { apiFetch } from "./services/apiClient";
 
 export default function App() {
+  //console.log("API URL:", import.meta.env.VITE_API_URL); este es para probar que si esta leyendo la variable de entorno.
+  // **** Este código es solo para probar la conexión con la API. *** //
+    // async function testApi() {
+    // try {
+    //   const result = await apiFetch("/api/Auth/login", {
+    //     method: "POST",
+    //     body: JSON.stringify({
+    //       email: "carlos@sizas",
+    //       password: "Web@1234",
+    //     }),
+    //   });
+
+    //   console.log("Login OK:", result);
+    //   localStorage.setItem("token", result.token);
+    // } catch (error) {
+    //   console.error("Error probando API:", error);
+    // }
+  // } **** Fin del código de prueba. *** //
   return (
     <AppProvider>
+        {/* <button onClick={testApi}> Este botón es solo para probar la conexión con la API.
+          Probar API
+        </button> */}
       <AppNavbar />
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -28,3 +50,4 @@ export default function App() {
     </AppProvider>
   );
 }
+
