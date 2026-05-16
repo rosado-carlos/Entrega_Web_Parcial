@@ -25,21 +25,24 @@ export type ActionResult = {
 };
 
 export type User = {
-  id: number;
+  id: string;
   fullName: string;
   email: string;
   major: string;
   avatarUrl?: string;
-  password: string;
+  password?: string;
 };
 
 export type ParcheMember = {
-  userId: number;
+  userId: string;
   role: ParcheRoleEnum;
+  fullName?: string;
+  email?: string;
+  avatarUrl?: string;
 };
 
 export type Parche = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   coverImageUrl: string;
@@ -48,35 +51,35 @@ export type Parche = {
 };
 
 export type PlanOption = {
-  id: number;
+  id: string;
   place: string;
   time: string;
 };
 
 export type Vote = {
-  planId: number;
-  userId: number;
-  optionId: number;
+  planId: string;
+  userId: string;
+  optionId: string;
 };
 
 export type Attendance = {
-  planId: number;
-  userId: number;
+  planId: string;
+  userId: string;
   status: AttendanceStatusEnum;
   checkedIn: boolean;
 };
 
 export type Plan = {
-  id: number;
-  parcheId: number;
-  createdBy: number;
+  id: string;
+  parcheId: string;
+  createdBy: string;
   title: string;
   description: string;
   dateStart: string;
   dateEnd: string;
   state: PlanStateEnum;
   options: PlanOption[];
-  winningOptionId?: number;
+  winningOptionId?: string;
   votingDeadline: string;
   checkInStart: string;
   checkInEnd: string;
@@ -88,7 +91,7 @@ export type AppData = {
   plans: Plan[];
   votes: Vote[];
   attendance: Attendance[];
-  currentUserId: number | null;
+  currentUserId: string | null;
 };
 
 export type RegisterData = {
@@ -106,7 +109,7 @@ export type NewParcheData = {
 };
 
 export type NewPlanData = {
-  parcheId: number;
+  parcheId: string;
   title: string;
   description: string;
   dateStart: string;

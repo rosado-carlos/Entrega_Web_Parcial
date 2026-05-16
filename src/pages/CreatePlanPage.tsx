@@ -11,7 +11,7 @@ type OptionInput = {
 };
 
 export default function CreatePlanPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const { currentUser, parches, createPlan } = useAppContext();
   const navigate = useNavigate();
 
@@ -32,18 +32,23 @@ export default function CreatePlanPage() {
     return <Navigate to="/login" replace />;
   }
 
-  const parcheId = Number(id);
+  const parcheId = id ?? "";
   const parche = parches.find((item) => item.id === parcheId);
 
   if (!parche) {
     return (
       <main className="container py-4">
-        <EmptyState title="Parche not found" description="The requested parche no longer exists." />
+        <EmptyState
+          title="Parche not found"
+          description="The requested parche no longer exists."
+        />
       </main>
     );
   }
 
-  const isMember = parche.members.some((member) => member.userId === currentUser.id);
+  const isMember = parche.members.some(
+    (member) => member.userId === currentUser.id
+  );
 
   if (!isMember) {
     return (
@@ -56,7 +61,11 @@ export default function CreatePlanPage() {
     );
   }
 
-  function handleOptionChange(index: number, field: "place" | "time", value: string) {
+  function handleOptionChange(
+    index: number,
+    field: "place" | "time",
+    value: string
+  ) {
     setOptions((previousOptions) => {
       return previousOptions.map((option, optionIndex) => {
         if (optionIndex !== index) {
@@ -104,14 +113,18 @@ export default function CreatePlanPage() {
       <section className="card shadow-sm p-4">
         <h1 className="h4">Create a new plan in {parche.name}</h1>
         <p className="small text-muted mb-4">
-          Any member can create a plan, but only owners and moderators can move it through the state machine.
+          Any member can create a plan, but only owners and moderators can move it
+          through the state machine.
         </p>
+
         <form onSubmit={(event) => void handleSubmit(event)}>
           <FeedbackAlert status={status} message={message} className="mb-3" />
 
           <div className="row g-3">
             <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="plan-title">Title</label>
+              <label className="form-label" htmlFor="plan-title">
+                Title
+              </label>
               <input
                 id="plan-title"
                 className="form-control"
@@ -121,8 +134,11 @@ export default function CreatePlanPage() {
                 minLength={4}
               />
             </div>
+
             <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="plan-voting-deadline">Voting deadline</label>
+              <label className="form-label" htmlFor="plan-voting-deadline">
+                Voting deadline
+              </label>
               <input
                 id="plan-voting-deadline"
                 className="form-control"
@@ -132,8 +148,11 @@ export default function CreatePlanPage() {
                 required
               />
             </div>
+
             <div className="col-12">
-              <label className="form-label" htmlFor="plan-description">Description</label>
+              <label className="form-label" htmlFor="plan-description">
+                Description
+              </label>
               <textarea
                 id="plan-description"
                 className="form-control"
@@ -143,8 +162,11 @@ export default function CreatePlanPage() {
                 minLength={10}
               />
             </div>
+
             <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="plan-date-start">Date start</label>
+              <label className="form-label" htmlFor="plan-date-start">
+                Date start
+              </label>
               <input
                 id="plan-date-start"
                 className="form-control"
@@ -154,8 +176,11 @@ export default function CreatePlanPage() {
                 required
               />
             </div>
+
             <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="plan-date-end">Date end</label>
+              <label className="form-label" htmlFor="plan-date-end">
+                Date end
+              </label>
               <input
                 id="plan-date-end"
                 className="form-control"
@@ -169,22 +194,32 @@ export default function CreatePlanPage() {
           </div>
 
           <h2 className="h5 mt-4">Options (minimum 3)</h2>
+
           {options.map((option, index) => (
             <div className="row g-2 mb-2" key={`plan-option-${index + 1}`}>
               <div className="col-12 col-md-8">
-                <label className="form-label" htmlFor={`plan-option-place-${index + 1}`}>
+                <label
+                  className="form-label"
+                  htmlFor={`plan-option-place-${index + 1}`}
+                >
                   Option {index + 1} place
                 </label>
                 <input
                   id={`plan-option-place-${index + 1}`}
                   className="form-control"
                   value={option.place}
-                  onChange={(event) => handleOptionChange(index, "place", event.target.value)}
+                  onChange={(event) =>
+                    handleOptionChange(index, "place", event.target.value)
+                  }
                   required
                 />
               </div>
+
               <div className="col-12 col-md-4">
-                <label className="form-label" htmlFor={`plan-option-time-${index + 1}`}>
+                <label
+                  className="form-label"
+                  htmlFor={`plan-option-time-${index + 1}`}
+                >
                   Option {index + 1} time
                 </label>
                 <input
@@ -192,14 +227,20 @@ export default function CreatePlanPage() {
                   className="form-control"
                   type="time"
                   value={option.time}
-                  onChange={(event) => handleOptionChange(index, "time", event.target.value)}
+                  onChange={(event) =>
+                    handleOptionChange(index, "time", event.target.value)
+                  }
                   required
                 />
               </div>
             </div>
           ))}
 
-          <button type="submit" className="btn btn-primary mt-2" disabled={status === "loading"}>
+          <button
+            type="submit"
+            className="btn btn-primary mt-2"
+            disabled={status === "loading"}
+          >
             {status === "loading" ? "Creating plan..." : "Create plan"}
           </button>
         </form>

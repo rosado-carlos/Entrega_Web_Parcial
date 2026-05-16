@@ -28,13 +28,19 @@ export type AppContextType = {
   logout: () => Promise<ActionResult>;
   createParche: (data: NewParcheData) => Promise<ActionResult>;
   joinParche: (inviteCode: string) => Promise<ActionResult>;
-  updateRole: (parcheId: number, targetUserId: number, role: ParcheRoleEnum) => Promise<ActionResult>;
+  updateRole: (
+    parcheId: string,
+    targetUserId: string,
+    role: ParcheRoleEnum,
+  ) => Promise<ActionResult>;
   createPlan: (data: NewPlanData) => Promise<ActionResult>;
-  movePlanState: (planId: number) => Promise<ActionResult>;
-  voteForOption: (planId: number, optionId: number) => Promise<ActionResult>;
-  closeVotingIfTimePassed: () => Promise<ActionResult>;
-  setAttendance: (planId: number, status: AttendanceStatusEnum) => Promise<ActionResult>;
-  setCheckIn: (planId: number) => Promise<ActionResult>;
+  movePlanState: (planId: string) => Promise<ActionResult>;
+  voteForOption: (planId: string, optionId: string) => Promise<ActionResult>;
+  setAttendance: (
+    planId: string,
+    status: AttendanceStatusEnum,
+  ) => Promise<ActionResult>;
+  setCheckIn: (planId: string) => Promise<ActionResult>;
 };
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
