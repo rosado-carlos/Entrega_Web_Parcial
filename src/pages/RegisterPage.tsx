@@ -25,6 +25,24 @@ export default function RegisterPage() {
     setStatus("loading");
     setMessage("");
 
+    if (!/\d/.test(password)) {
+      setStatus("error");
+      setMessage("Password must contain at least one number.");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setStatus("error");
+      setMessage("Password must contain at least one uppercase letter.");
+      return;
+    }
+
+    if (!/[a-z]/.test(password)) {
+      setStatus("error");
+      setMessage("Password must contain at least one lowercase letter.");
+      return;
+    }
+
     const result = await register({ fullName, email, major, password, avatarUrl });
     if (!result.success) {
       setStatus("error");
@@ -96,7 +114,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              minLength={4}
+              minLength={8}
               autoComplete="new-password"
             />
           </div>
