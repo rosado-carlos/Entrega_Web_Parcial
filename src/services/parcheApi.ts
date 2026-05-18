@@ -5,6 +5,7 @@ type BackendParcheMember = {
   userId: string;
   fullName?: string;
   email?: string;
+  avatarUrl?: string;
   role: string;
 };
 
@@ -44,6 +45,7 @@ export function normalizeParche(parche: BackendParche): Parche {
     role: normalizeRole(member.role),
     fullName: member.fullName,
     email: member.email,
+    avatarUrl: member.avatarUrl,
     })),
   };
 }
@@ -85,6 +87,22 @@ export async function joinParche(inviteCode: string): Promise<Parche> {
     method: "POST",
     body: JSON.stringify({
       inviteCode: inviteCode.trim(),
+    }),
+  });
+
+  return normalizeParche(parche);
+}
+
+export async function editParche(
+  parcheId: string,
+  data: NewParcheData
+): Promise<Parche> {
+  const parche = await apiFetch(`/api/parches/${parcheId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: data.name.trim(),
+      description: data.description.trim(),
+      coverImageUrl: data.coverImageUrl.trim(),
     }),
   });
 

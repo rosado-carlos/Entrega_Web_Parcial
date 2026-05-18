@@ -21,6 +21,7 @@ import {
 import {
   getMyParches,
   createParche as createParcheApi,
+  editParche as editParcheApi,
   joinParche as joinParcheApi,
   updateParcheRole,
 } from "../services/parcheApi";
@@ -499,6 +500,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [softRefreshBackendData]
   );
 
+  const editParche = useCallback(
+    async (parcheId: string, data: NewParcheData): Promise<ActionResult> => {
+      try {
+        const updatedParche = await editParcheApi(parcheId, data);
+
+        setAppData((previousData) => ({
+          ...previousData,
+          parches: previousData.parches.map((parche) =>
+            parche.id === parcheId ? updatedParche : parche
+          ),
+        }));
+
+        void softRefreshBackendData();
+
+        return {
+          success: true,
+          message: "Parche updated successfully.",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: getErrorMessage(error),
+        };
+      }
+    },
+    [softRefreshBackendData]
+  );
+
   const joinParche = useCallback(
     async (inviteCode: string): Promise<ActionResult> => {
       try {
@@ -871,6 +900,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       createParche,
+      editParche,
       joinParche,
       updateRole,
       createPlan,
@@ -884,6 +914,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createParche,
       createPlan,
       currentUser,
+      editParche,
       joinParche,
       login,
       logout,

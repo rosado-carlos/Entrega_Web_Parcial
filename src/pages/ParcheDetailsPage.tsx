@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router";
 import PlanCard from "../components/plans/PlanCard";
 import FeedbackAlert from "../components/ui/FeedbackAlert";
@@ -9,11 +9,18 @@ import { ParcheRoleEnum, type RequestStatus } from "../types";
 export default function ParcheDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const { currentUser, parches, users, plans, updateRole } = useAppContext();
+  const { currentUser, parches, users, plans, updateRole, editParche } = useAppContext();
 
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [message, setMessage] = useState("");
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCoverImageUrl, setEditCoverImageUrl] = useState("");
+  const [editStatus, setEditStatus] = useState<RequestStatus>("idle");
+  const [editMessage, setEditMessage] = useState("");
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -88,6 +95,36 @@ export default function ParcheDetailsPage() {
     setPendingUserId(null);
   }
 
+  function openEditForm() {
+    setEditName(activeParche.name);
+    setEditDescription(activeParche.description);
+    setEditCoverImageUrl(activeParche.coverImageUrl);
+    setEditStatus("idle");
+    setEditMessage("");
+    setIsEditing(true);
+  }
+
+  async function handleEditParche(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEditStatus("loading");
+    setEditMessage("");
+
+    const result = await editParche(activeParche.id, {
+      name: editName,
+      description: editDescription,
+      coverImageUrl: editCoverImageUrl,
+    });
+
+    if (result.success) {
+      setEditStatus("success");
+      setEditMessage(result.message);
+      setIsEditing(false);
+    } else {
+      setEditStatus("error");
+      setEditMessage(result.message);
+    }
+  }
+
   return (
     <main className="container py-4">
       <Link to="/" className="btn btn-link ps-0 mb-2">
@@ -101,6 +138,15 @@ export default function ParcheDetailsPage() {
         </div>
 
         <div className="d-flex flex-wrap gap-2">
+          {canManageRoles && (
+            <button
+              className="btn btn-outline-primary"
+              onClick={openEditForm}
+            >
+              Edit parche
+            </button>
+          )}
+
           <Link
             to={`/parches/${activeParche.id}/plans/new`}
             className="btn btn-primary"
@@ -119,6 +165,62 @@ export default function ParcheDetailsPage() {
         message={visibleMessage}
         className="mb-3"
       />
+
+      {isEditing && (
+        <section className="card p-3 mb-3 shadow-sm">
+          <h2 className="h5 mb-3">Edit parche</h2>
+          <FeedbackAlert status={editStatus} message={editMessage} className="mb-3" />
+          <form onSubmit={(event) => void handleEditParche(event)}>
+            <div className="mb-3">
+              <label className="form-label" htmlFor="edit-parche-name">Parche name</label>
+              <input
+                id="edit-parche-name"
+                className="form-control"
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                required
+                minLength={3}
+                maxLength={50}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label" htmlFor="edit-parche-description">Description</label>
+              <textarea
+                id="edit-parche-description"
+                className="form-control"
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                required
+                minLength={10}
+                maxLength={250}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label" htmlFor="edit-parche-cover-image">Cover image URL</label>
+              <input
+                id="edit-parche-cover-image"
+                className="form-control"
+                type="url"
+                value={editCoverImageUrl}
+                onChange={(event) => setEditCoverImageUrl(event.target.value)}
+                required
+              />
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn btn-primary" type="submit" disabled={editStatus === "loading"}>
+                {editStatus === "loading" ? "Saving..." : "Save changes"}
+              </button>
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={() => setIsEditing(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="card p-3 mb-3 shadow-sm">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">

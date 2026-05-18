@@ -27,6 +27,7 @@ export type AppContextType = {
   login: (email: string, password: string) => Promise<ActionResult>;
   logout: () => Promise<ActionResult>;
   createParche: (data: NewParcheData) => Promise<ActionResult>;
+  editParche: (parcheId: string, data: NewParcheData) => Promise<ActionResult>;
   joinParche: (inviteCode: string) => Promise<ActionResult>;
   updateRole: (
     parcheId: string,
