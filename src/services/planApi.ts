@@ -12,6 +12,8 @@ type PlanOptionResponseDTO = {
   id?: string;
   idOption?: string;
   IdOption?: string;
+  idPlanOption?: string;
+  IdPlanOption?: string;
   optionId?: string;
 
   place?: string;
@@ -88,6 +90,8 @@ type PlanResponseDTO = {
 
   options?: PlanOptionResponseDTO[];
   Options?: PlanOptionResponseDTO[];
+  planOptions?: PlanOptionResponseDTO[];
+  PlanOptions?: PlanOptionResponseDTO[];
   opciones?: PlanOptionResponseDTO[];
 
   attendance?: PlanAttendanceResponseDTO[];
@@ -235,6 +239,8 @@ function normalizePlanOption(
   return {
     id:
       option.id ??
+      option.idPlanOption ??
+      option.IdPlanOption ??
       option.idOption ??
       option.IdOption ??
       option.optionId ??
@@ -277,7 +283,7 @@ function normalizePlan(plan: PlanResponseDTO): PlanFromApi {
     plan.userId ??
     "";
 
-  const optionsSource = plan.options ?? plan.Options ?? plan.opciones ?? [];
+  const optionsSource = plan.options ?? plan.Options ?? plan.planOptions ?? plan.PlanOptions ?? plan.opciones ?? [];
   const attendanceSource = plan.attendance ?? plan.Attendance ?? [];
 
   const currentUserVoteOptionId =
