@@ -3,11 +3,12 @@ import { Link, Navigate, useParams } from "react-router";
 import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
-import { getAttendanceForPlan } from "../services/planApi";
+import { getAttendanceForPlan, getAllAttendanceForPlan } from "../services/planApi";
 import {
   AttendanceStatusEnum,
   ParcheRoleEnum,
   PlanStateEnum,
+  type Attendance,
   type Plan,
   type RequestStatus,
 } from "../types";
@@ -44,6 +45,7 @@ export default function PlanDetailsPage() {
   const [fetchedAttendanceStatus, setFetchedAttendanceStatus] =
     useState<AttendanceStatusEnum | null>(null);
   const [fetchedCheckedIn, setFetchedCheckedIn] = useState(false);
+  const [fetchedAllAttendance, setFetchedAllAttendance] = useState<Attendance[]>([]);
 
   const planId = id ?? "";
 
@@ -52,14 +54,18 @@ export default function PlanDetailsPage() {
 
     async function loadAttendance() {
       try {
-        const result = await getAttendanceForPlan(planId);
+        const [myResult, allResult] = await Promise.all([
+          getAttendanceForPlan(planId),
+          getAllAttendanceForPlan(planId).catch(() => [] as Attendance[]),
+        ]);
 
         if (active) {
-          setFetchedAttendanceStatus(result.status);
-          setFetchedCheckedIn(result.checkedIn);
+          setFetchedAttendanceStatus(myResult.status);
+          setFetchedCheckedIn(myResult.checkedIn);
+          setFetchedAllAttendance(allResult);
         }
       } catch {
-        // If it fails (e.g. 404), leave as null/not set
+        // If it fails, leave as defaults
       }
     }
 
@@ -156,9 +162,9 @@ export default function PlanDetailsPage() {
     0
   );
 
-  const planAttendance = attendance.filter(
-    (item) => item.planId === activePlan.id
-  );
+  const planAttendance = fetchedAllAttendance.length > 0
+    ? fetchedAllAttendance
+    : attendance.filter((item) => item.planId === activePlan.id);
 
   const myAttendance = planAttendance.find(
     (item) => item.userId === currentUser.id
@@ -237,6 +243,14 @@ export default function PlanDetailsPage() {
 
       if (status !== AttendanceStatusEnum.yes) {
         setFetchedCheckedIn(false);
+      }
+
+      // Refetch full attendance list
+      try {
+        const allResult = await getAllAttendanceForPlan(activePlan.id);
+        setFetchedAllAttendance(allResult);
+      } catch {
+        // ignore
       }
     }
   }

@@ -463,6 +463,25 @@ export async function getAttendanceForPlan(
   };
 }
 
+export async function getAllAttendanceForPlan(
+  planId: string
+): Promise<Attendance[]> {
+  const response = await apiRequest<AttendanceResponse | AttendanceResponse[]>(
+    `/api/plans/${planId}/attendances`
+  );
+
+  const items = Array.isArray(response) ? response : [response];
+
+  return items
+    .filter((item) => item.userId && item.status)
+    .map((item) => ({
+      planId,
+      userId: item.userId!,
+      status: normalizeAttendanceStatus(item.status) ?? AttendanceStatusEnum.maybe,
+      checkedIn: item.checkedIn ?? false,
+    }));
+}
+
 export async function setPlanCheckIn(planId: string): Promise<string> {
   const response = await apiRequest<MessageResponse>(
     `/api/plans/${planId}/check-in`,
