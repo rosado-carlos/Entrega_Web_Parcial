@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from "react-router";
 import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
-import { getAttendanceForPlan, getAllAttendanceForPlan } from "../services/planApi";
+import { getAttendanceForPlan, getAllAttendanceForPlan, getAllVotesForPlan } from "../services/planApi";
 import {
   AttendanceStatusEnum,
   ParcheRoleEnum,
@@ -11,11 +11,8 @@ import {
   type Attendance,
   type Plan,
   type RequestStatus,
+  type Vote,
 } from "../types";
-
-type OptionWithVoteCount = Plan["options"][number] & {
-  voteCount?: number;
-};
 
 export default function PlanDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,23 +43,26 @@ export default function PlanDetailsPage() {
     useState<AttendanceStatusEnum | null>(null);
   const [fetchedCheckedIn, setFetchedCheckedIn] = useState(false);
   const [fetchedAllAttendance, setFetchedAllAttendance] = useState<Attendance[]>([]);
+  const [fetchedVotes, setFetchedVotes] = useState<Vote[]>([]);
 
   const planId = id ?? "";
 
   useEffect(() => {
     let active = true;
 
-    async function loadAttendance() {
+    async function loadPlanData() {
       try {
-        const [myResult, allResult] = await Promise.all([
+        const [myResult, allAttendance, allVotes] = await Promise.all([
           getAttendanceForPlan(planId),
           getAllAttendanceForPlan(planId).catch(() => [] as Attendance[]),
+          getAllVotesForPlan(planId).catch(() => [] as Vote[]),
         ]);
 
         if (active) {
           setFetchedAttendanceStatus(myResult.status);
           setFetchedCheckedIn(myResult.checkedIn);
-          setFetchedAllAttendance(allResult);
+          setFetchedAllAttendance(allAttendance);
+          setFetchedVotes(allVotes);
         }
       } catch {
         // If it fails, leave as defaults
@@ -70,7 +70,7 @@ export default function PlanDetailsPage() {
     }
 
     if (planId) {
-      void loadAttendance();
+      void loadPlanData();
     }
 
     return () => {
@@ -146,15 +146,12 @@ export default function PlanDetailsPage() {
     member.role === ParcheRoleEnum.owner ||
     member.role === ParcheRoleEnum.moderator;
 
-  function getOptionVoteCount(option: Plan["options"][number]): number {
-    const optionWithVoteCount = option as OptionWithVoteCount;
+  const effectiveVotes = fetchedVotes.length > 0 ? fetchedVotes : votes;
 
-    return (
-      optionWithVoteCount.voteCount ??
-      votes.filter(
-        (vote) => vote.planId === activePlan.id && vote.optionId === option.id
-      ).length
-    );
+  function getOptionVoteCount(option: Plan["options"][number]): number {
+    return effectiveVotes.filter(
+      (vote) => vote.planId === activePlan.id && vote.optionId === option.id
+    ).length;
   }
 
   const totalVotes = activePlan.options.reduce(
@@ -175,7 +172,7 @@ export default function PlanDetailsPage() {
   const effectiveCheckedIn =
     fetchedCheckedIn || (myAttendance?.checkedIn ?? false);
 
-  const myVote = votes.find(
+  const myVote = effectiveVotes.find(
     (vote) => vote.planId === activePlan.id && vote.userId === currentUser.id
   );
 
@@ -227,6 +224,15 @@ export default function PlanDetailsPage() {
 
     setVoteStatus(result.success ? "success" : "error");
     setVoteMessage(result.message);
+
+    if (result.success) {
+      try {
+        const allVotes = await getAllVotesForPlan(activePlan.id);
+        setFetchedVotes(allVotes);
+      } catch {
+        // ignore
+      }
+    }
   }
 
   async function handleAttendance(status: AttendanceStatusEnum) {

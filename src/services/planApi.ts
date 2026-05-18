@@ -425,6 +425,28 @@ export async function voteForOption(
   return normalizeMessage(response, "Vote recorded successfully.");
 }
 
+type VoteResponse = {
+  idVote?: string;
+  userId?: string;
+  optionId?: string;
+};
+
+export async function getAllVotesForPlan(
+  planId: string
+): Promise<Vote[]> {
+  const response = await apiRequest<VoteResponse[]>(
+    `/api/plans/${planId}/votes`
+  );
+
+  return response
+    .filter((item) => item.userId && item.optionId)
+    .map((item) => ({
+      planId,
+      userId: item.userId!,
+      optionId: item.optionId!,
+    }));
+}
+
 export async function setAttendanceStatus(
   planId: string,
   status: AttendanceStatusEnum
