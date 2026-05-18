@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from "react-router";
 import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
-import { getAttendanceForPlan, getAllAttendanceForPlan, getAllVotesForPlan } from "../services/planApi";
+import { getAllAttendanceForPlan, getAllVotesForPlan } from "../services/planApi";
 import {
   AttendanceStatusEnum,
   ParcheRoleEnum,
@@ -39,9 +39,6 @@ export default function PlanDetailsPage() {
   const [checkInStatus, setCheckInStatus] = useState<RequestStatus>("idle");
   const [checkInMessage, setCheckInMessage] = useState("");
 
-  const [fetchedAttendanceStatus, setFetchedAttendanceStatus] =
-    useState<AttendanceStatusEnum | null>(null);
-  const [fetchedCheckedIn, setFetchedCheckedIn] = useState(false);
   const [fetchedAllAttendance, setFetchedAllAttendance] = useState<Attendance[]>([]);
   const [fetchedVotes, setFetchedVotes] = useState<Vote[]>([]);
 
@@ -52,15 +49,12 @@ export default function PlanDetailsPage() {
 
     async function loadPlanData() {
       try {
-        const [myResult, allAttendance, allVotes] = await Promise.all([
-          getAttendanceForPlan(planId),
+        const [allAttendance, allVotes] = await Promise.all([
           getAllAttendanceForPlan(planId).catch(() => [] as Attendance[]),
           getAllVotesForPlan(planId).catch(() => [] as Vote[]),
         ]);
 
         if (active) {
-          setFetchedAttendanceStatus(myResult.status);
-          setFetchedCheckedIn(myResult.checkedIn);
           setFetchedAllAttendance(allAttendance);
           setFetchedVotes(allVotes);
         }
@@ -167,10 +161,8 @@ export default function PlanDetailsPage() {
     (item) => item.userId === currentUser.id
   );
 
-  const effectiveAttendanceStatus =
-    fetchedAttendanceStatus ?? myAttendance?.status ?? null;
-  const effectiveCheckedIn =
-    fetchedCheckedIn || (myAttendance?.checkedIn ?? false);
+  const effectiveAttendanceStatus = myAttendance?.status ?? null;
+  const effectiveCheckedIn = myAttendance?.checkedIn ?? false;
 
   const myVote = effectiveVotes.find(
     (vote) => vote.planId === activePlan.id && vote.userId === currentUser.id
@@ -245,13 +237,6 @@ export default function PlanDetailsPage() {
     setAttendanceMessage(result.message);
 
     if (result.success) {
-      setFetchedAttendanceStatus(status);
-
-      if (status !== AttendanceStatusEnum.yes) {
-        setFetchedCheckedIn(false);
-      }
-
-      // Refetch full attendance list
       try {
         const allResult = await getAllAttendanceForPlan(activePlan.id);
         setFetchedAllAttendance(allResult);
@@ -271,7 +256,12 @@ export default function PlanDetailsPage() {
     setCheckInMessage(result.message);
 
     if (result.success) {
-      setFetchedCheckedIn(true);
+      try {
+        const allResult = await getAllAttendanceForPlan(activePlan.id);
+        setFetchedAllAttendance(allResult);
+      } catch {
+        // ignore
+      }
     }
   }
 

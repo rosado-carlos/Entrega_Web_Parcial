@@ -470,21 +470,6 @@ type AttendanceResponse = {
   checkedIn?: boolean;
 };
 
-export async function getAttendanceForPlan(
-  planId: string
-): Promise<{ status: AttendanceStatusEnum | null; checkedIn: boolean }> {
-  const response = await apiRequest<AttendanceResponse>(
-    `/api/plans/${planId}/attendance`
-  );
-
-  const status = normalizeAttendanceStatus(response.status) ?? null;
-
-  return {
-    status,
-    checkedIn: response.checkedIn ?? false,
-  };
-}
-
 export async function getAllAttendanceForPlan(
   planId: string
 ): Promise<Attendance[]> {
