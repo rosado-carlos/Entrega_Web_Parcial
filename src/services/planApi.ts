@@ -440,6 +440,29 @@ export async function setAttendanceStatus(
   return normalizeMessage(response, `Attendance updated to ${status}.`);
 }
 
+type AttendanceResponse = {
+  idAttendance?: string;
+  planId?: string;
+  userId?: string;
+  status?: string | null;
+  checkedIn?: boolean;
+};
+
+export async function getAttendanceForPlan(
+  planId: string
+): Promise<{ status: AttendanceStatusEnum | null; checkedIn: boolean }> {
+  const response = await apiRequest<AttendanceResponse>(
+    `/api/plans/${planId}/attendance`
+  );
+
+  const status = normalizeAttendanceStatus(response.status) ?? null;
+
+  return {
+    status,
+    checkedIn: response.checkedIn ?? false,
+  };
+}
+
 export async function setPlanCheckIn(planId: string): Promise<string> {
   const response = await apiRequest<MessageResponse>(
     `/api/plans/${planId}/check-in`,

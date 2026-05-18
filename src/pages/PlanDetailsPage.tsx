@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import FeedbackAlert from "../components/ui/FeedbackAlert";
 import EmptyState from "../components/ui/EmptyState";
 import { useAppContext } from "../context/useAppContext";
+import { getAttendanceForPlan } from "../services/planApi";
 import {
   AttendanceStatusEnum,
   ParcheRoleEnum,
@@ -40,11 +41,41 @@ export default function PlanDetailsPage() {
   const [checkInStatus, setCheckInStatus] = useState<RequestStatus>("idle");
   const [checkInMessage, setCheckInMessage] = useState("");
 
+  const [fetchedAttendanceStatus, setFetchedAttendanceStatus] =
+    useState<AttendanceStatusEnum | null>(null);
+  const [fetchedCheckedIn, setFetchedCheckedIn] = useState(false);
+
+  const planId = id ?? "";
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAttendance() {
+      try {
+        const result = await getAttendanceForPlan(planId);
+
+        if (active) {
+          setFetchedAttendanceStatus(result.status);
+          setFetchedCheckedIn(result.checkedIn);
+        }
+      } catch {
+        // If it fails (e.g. 404), leave as null/not set
+      }
+    }
+
+    if (planId) {
+      void loadAttendance();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [planId]);
+
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
 
-  const planId = id ?? "";
   const plan = plans.find((item) => item.id === planId);
 
   if (!plan) {
@@ -133,6 +164,11 @@ export default function PlanDetailsPage() {
     (item) => item.userId === currentUser.id
   );
 
+  const effectiveAttendanceStatus =
+    fetchedAttendanceStatus ?? myAttendance?.status ?? null;
+  const effectiveCheckedIn =
+    fetchedCheckedIn || (myAttendance?.checkedIn ?? false);
+
   const myVote = votes.find(
     (vote) => vote.planId === activePlan.id && vote.userId === currentUser.id
   );
@@ -145,8 +181,8 @@ export default function PlanDetailsPage() {
 
   const canCheckIn =
     canCheckInNow &&
-    myAttendance?.status === AttendanceStatusEnum.yes &&
-    !myAttendance.checkedIn;
+    effectiveAttendanceStatus === AttendanceStatusEnum.yes &&
+    !effectiveCheckedIn;
 
   const winningOption = activePlan.options.find(
     (option) => option.id === activePlan.winningOptionId
@@ -195,6 +231,14 @@ export default function PlanDetailsPage() {
 
     setAttendanceStatusMessage(result.success ? "success" : "error");
     setAttendanceMessage(result.message);
+
+    if (result.success) {
+      setFetchedAttendanceStatus(status);
+
+      if (status !== AttendanceStatusEnum.yes) {
+        setFetchedCheckedIn(false);
+      }
+    }
   }
 
   async function handleCheckIn() {
@@ -205,6 +249,10 @@ export default function PlanDetailsPage() {
 
     setCheckInStatus(result.success ? "success" : "error");
     setCheckInMessage(result.message);
+
+    if (result.success) {
+      setFetchedCheckedIn(true);
+    }
   }
 
   return (
@@ -354,7 +402,7 @@ export default function PlanDetailsPage() {
         </div>
 
         <p className="small mb-2">
-          Your current status: <strong>{myAttendance?.status ?? "Not set"}</strong>
+          Your current status: <strong>{effectiveAttendanceStatus ?? "Not set"}</strong>
         </p>
 
         <h3 className="h6">Attendance list</h3>
@@ -449,7 +497,7 @@ export default function PlanDetailsPage() {
         >
           {checkInStatus === "loading"
             ? "Checking in..."
-            : myAttendance?.checkedIn
+            : effectiveCheckedIn
               ? "Checked in"
               : "Check in now"}
         </button>
@@ -461,7 +509,7 @@ export default function PlanDetailsPage() {
           </p>
         )}
 
-        {myAttendance?.status !== AttendanceStatusEnum.yes && (
+        {effectiveAttendanceStatus !== AttendanceStatusEnum.yes && (
           <p className="small text-muted mt-2 mb-0">
             Set your attendance to Yes before trying to check in.
           </p>

@@ -290,11 +290,14 @@ function mergeBackendPlansIntoData(
     };
   }
 
+  const backendVotes = extractVotesFromPlans(backendPlans, data.currentUserId);
+  const backendAttendance = extractAttendanceFromPlans(backendPlans, data.currentUserId);
+
   return {
     ...data,
     plans: backendPlans,
-    votes: extractVotesFromPlans(backendPlans, data.currentUserId),
-    attendance: extractAttendanceFromPlans(backendPlans, data.currentUserId),
+    votes: backendVotes.length > 0 ? backendVotes : data.votes,
+    attendance: backendAttendance.length > 0 ? backendAttendance : data.attendance,
   };
 }
 
