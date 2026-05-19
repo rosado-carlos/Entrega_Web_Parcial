@@ -108,3 +108,23 @@ export async function editParche(
 
   return normalizeParche(parche);
 }
+
+export type RankingEntry = {
+  userId: string;
+  fullName: string;
+  email: string;
+  organizerScore: number;
+  ghostScore: number;
+};
+
+export async function getRankings(parcheId: string): Promise<RankingEntry[]> {
+  const response = await apiFetch(`/api/parches/${parcheId}/rankings`);
+
+  return (response as RankingEntry[]).map((entry) => ({
+    userId: entry.userId ?? "",
+    fullName: entry.fullName ?? "Unknown",
+    email: entry.email ?? "",
+    organizerScore: Number(entry.organizerScore ?? 0),
+    ghostScore: Number(entry.ghostScore ?? 0),
+  }));
+}
